@@ -1,15 +1,22 @@
 # JARVIS Local
 
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Whisper](https://img.shields.io/badge/Whisper-OpenAI-orange?logo=openai)](https://github.com/openai/whisper)
+
 Local voice assistant with 12+ skills, WebUI, wake word detection, and plugin system.
 
 ## Features
 
-- **Voice Pipeline** — Wake word → STT (Whisper) → LLM → TTS (Edge-TTS)
-- **12+ Built-in Skills** — Weather, Notes, Calculator, DateTime, Web Search, Spotify, Telegram, Reminders, Translator, News, IP/Geo, File Manager, System Control
+- **Voice Input** — Whisper (tiny/base) for speech-to-text
+- **Wake Word** — Energy-based + WebRTC VAD detection
+- **Voice Output** — Edge-TTS with multiple voices
 - **WebUI** — Chat interface at `localhost:8080`
-- **Plugin System** — Drop-in skill modules
-- **Persistent Memory** — Session-based conversation history
-- **Local-First** — Runs entirely on your machine (no cloud required for core)
+- **12+ Skills** — Weather, notes, calculator, datetime, web search, Spotify, Telegram, translator, reminders, file manager, news, IP geo, system control
+- **Plugin System** — Extensible skill architecture
+- **Session Memory** — Persistent conversation history
+- **Obsidian Logging** — Auto-logs to vault
 
 ## Skills Included
 
@@ -20,13 +27,13 @@ Local voice assistant with 12+ skills, WebUI, wake word detection, and plugin sy
 | `calculator.py` | Math expressions |
 | `datetime_skill.py` | Date/time queries |
 | `web_search.py` | DuckDuckGo search |
-| `spotify.py` | Playback control |
-| `telegram.py` | Send messages |
-| `reminders.py` | Set/get reminders |
+| `spotify.py` | Spotify control |
+| `telegram.py` | Telegram bot bridge |
 | `translator.py` | Multi-language translation |
-| `news.py` | Latest headlines |
-| `ip_geo.py` | IP geolocation |
+| `reminders.py` | Timed reminders |
 | `file_manager.py` | File operations |
+| `news.py` | News headlines |
+| `ip_geo.py` | IP geolocation |
 | `system_control.py` | System commands |
 
 ## Quick Start
@@ -40,62 +47,64 @@ cp .env.example .env
 # Edit .env with your API keys
 
 # 3. Run
-python main.py
+python main.py          # CLI mode
+python run_webui.py     # WebUI mode
 
-# 4. Open WebUI
-# http://localhost:8080
+# 4. Or install as service
+./jarvis-start.sh
 ```
 
 ## Project Structure
 
 ```
 jarvis-local/
-├── main.py                 # Entry point
-├── app.py                  # FastAPI + WebUI
-├── server.py               # HTTP server
-├── run_webui.py            # WebUI launcher
+├── main.py                 # CLI entry point
+├── run_webui.py            # WebUI entry point
+├── server.py               # FastAPI server for WebUI
+├── webui.py                # WebUI components
 ├── requirements.txt
 ├── install.sh              # Systemd installer
-├── jarvis.sh               # CLI launcher
-├── jarvis-start.sh         # Start script
-├── jarvis-desktop.sh       # Desktop entry
-├── PLAN.md                 # Architecture plan
-├── BUGS_Y_PLAN.md          # Bug tracker
+├── jarvis.sh               # Launcher script
+├── .env.example
 ├── input/
-│   ├── voice_input.py      # Whisper STT
+│   ├── voice_input.py      # Whisper + VAD
+│   ├── text_input.py       # Text fallback
 │   ├── wake_word.py        # Wake word detection
-│   └── text_input.py       # Text fallback
+│   └── display.py          # Terminal HUD
 ├── output/
 │   ├── voice_output.py     # Edge-TTS
 │   └── text_output.py      # Text fallback
 ├── skills/                 # 12+ skill modules
-│   ├── __init__.py
-│   ├── skill_manager.py
-│   ├── weather.py
-│   ├── notes.py
-│   ├── calculator.py
-│   ├── datetime_skill.py
-│   ├── web_search.py
-│   ├── spotify.py
-│   ├── telegram.py
-│   ├── reminders.py
-│   ├── translator.py
-│   ├── news.py
-│   ├── ip_geo.py
-│   ├── file_manager.py
-│   └── system_control.py
-├── webui/                  # WebUI templates
-└── obsidian_logger.py      # Obsidian vault logging
+├── core/
+│   ├── skill_manager.py    # Skill registry
+│   └── session.py          # Session memory
+└── obsidian_logger.py      # Vault logging
 ```
 
 ## Tech Stack
 
 - **Python** 3.11+
-- **FastAPI** — Web server
-- **Whisper** — Local STT (tiny model)
-- **Edge-TTS** — High-quality TTS
-- **OpenRouter** — LLM access (GPT-4o-mini, etc.)
-- **WebRTC VAD** — Voice activity detection
+- **Whisper** (speech-to-text)
+- **Edge-TTS** (text-to-speech)
+- **WebRTC VAD** (voice activity detection)
+- **FastAPI** (WebUI backend)
+- **OpenRouter** / **Ollama** (LLM)
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENROUTER_API_KEY` | **Yes** | Get from [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `OPENROUTER_MODEL` | No | Default: `openai/gpt-4o-mini` |
+| `OLLAMA_HOST` | No | Default: `http://localhost:11434` |
+| `OLLAMA_MODEL` | No | Default: `llama3.1:8b` |
+| `WHISPER_MODEL` | No | Default: `tiny` |
+| `WHISPER_LANGUAGE` | No | Default: `es` |
+| `TTS_ENGINE` | No | Default: `edge-tts` |
+| `TTS_VOICE` | No | Default: `es-ES-AlvaroNeural` |
+| `TELEGRAM_BOT_TOKEN` | No | For Telegram bridge |
+| `TELEGRAM_CHAT_ID` | No | Your chat ID |
+| `WEBUI_HOST` / `WEBUI_PORT` | No | Default: `0.0.0.0:8080` |
 
 ## License
 

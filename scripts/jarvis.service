@@ -1,0 +1,13 @@
+[Unit]
+Description=J.A.R.V.I.S. AI Assistant
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 main.py
+WorkingDirectory=PATH_TO_JARVIS
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

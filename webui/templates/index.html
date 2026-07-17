@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060a12;--panel:#0a1220cc;--line:#0e3a55;--cyan:#00d4ff;--cyan-dim:#0e6a8a;
+  --txt:#c8e8f5;--txt-dim:#4a7a95;--amber:#ffb300;--green:#00ff88;--red:#ff4455;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg);height:100vh;width:100vw;overflow:hidden;
+  font-family:'Share Tech Mono','Courier New',monospace;color:var(--txt);user-select:none;
+  background-image:
+    linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);
+  background-size:44px 44px;
+}
+.frame{position:fixed;inset:10px;border:1px solid #0e3a5544;pointer-events:none;z-index:1}
+.frame::before,.frame::after,.frame i::before,.frame i::after{
+  content:'';position:absolute;width:26px;height:26px;border:2px solid var(--cyan)}
+.frame::before{top:-2px;left:-2px;border-right:0;border-bottom:0}
+.frame::after{top:-2px;right:-2px;border-left:0;border-bottom:0}
+.frame i::before{bottom:-2px;left:-2px;border-right:0;border-top:0}
+.frame i::after{bottom:-2px;right:-2px;border-left:0;border-top:0}
+
+/* ─── Layout ─── */
+.app{display:grid;grid-template-rows:64px 1fr 76px;height:100vh;padding:18px 24px;gap:10px}
+.main{display:grid;grid-template-columns:230px 1fr 340px;gap:16px;min-height:0}
+
+/* ─── Top bar ─── */
+.topbar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:0 8px 10px}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand h1{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:800;letter-spacing:8px;color:var(--cyan);text-shadow:0 0 24px #00d4ff88}
+.mode{font-size:.65rem;letter-spacing:3px;color:var(--txt-dim);text-transform:uppercase}
+.mode b{color:var(--cyan);font-weight:400}
+.clockbox{text-align:right}
+#clock{font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:600;color:var(--cyan);letter-spacing:3px;text-shadow:0 0 16px #00d4ff66}
+#dateLine{font-size:.6rem;letter-spacing:2px;color:var(--txt-dim);text-transform:uppercase}
+
+/* ─── Panels ─── */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;backdrop-filter:blur(4px);position:relative;overflow:hidden;min-height:0}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.6}
+.panel h3{font-family:'Orbitron',monospace;font-size:.6rem;font-weight:600;letter-spacing:3px;color:var(--cyan-dim);text-transform:uppercase;margin-bottom:12px}
+
+/* Stats izquierda */
+.stat{margin-bottom:14px}
+.stat .lbl{display:flex;justify-content:space-between;font-size:.6rem;letter-spacing:2px;color:var(--txt-dim);margin-bottom:4px}
+.stat .lbl b{color:var(--cyan);font-weight:400}
+.bar{height:5px;background:#0a2030;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--cyan-dim),var(--cyan));border-radius:3px;transition:width .8s ease;box-shadow:0 0 8px #00d4ff66}
+.bar i.warn{background:linear-gradient(90deg,#8a6a0e,var(--amber))}
+.bar i.crit{background:linear-gradient(90deg,#8a1e2a,var(--red))}
+.vstate{display:flex;align-items:center;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.indicator{width:9px;height:9px;border-radius:50%;background:#3a4a5a;transition:all .3s;flex-shrink:0}
+.indicator.on{background:var(--green);box-shadow:0 0 10px var(--green)}
+.indicator.speaking{background:var(--cyan);box-shadow:0 0 12px var(--cyan);animation:pulse 1s infinite}
+.indicator.thinking{background:var(--amber);box-shadow:0 0 10px var(--amber);animation:pulse .6s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.vstate span{font-size:.6rem;letter-spacing:2px;color:var(--txt-dim);text-transform:uppercase}
+#modelChip{margin-top:12px;font-size:.55rem;letter-spacing:1px;color:var(--cyan-dim);word-break:break-all;line-height:1.5}
+#modelChip b{color:var(--txt-dim);font-weight:400;display:block;letter-spacing:2px}
+
+/* Centro: esfera */
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;min-height:0}
+canvas{display:block}
+#wakeHint{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:.65rem;letter-spacing:3px;color:var(--txt-dim);text-transform:uppercase;transition:all .4s}
+#wakeHint.active{color:var(--cyan);text-shadow:0 0 12px #00d4ff88}
+#transcript{position:absolute;top:12px;left:0;right:0;text-align:center;font-size:.6rem;letter-spacing:1px;color:#00d4ff88;min-height:1em;padding:0 16px}
+
+/* Chat derecha */
+.chatpanel{display:flex;flex-direction:column}
+#chatLog{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:6px;min-height:0}
+#chatLog::-webkit-scrollbar{width:4px}
+#chatLog::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.msg{max-width:92%;padding:9px 12px;border-radius:6px;font-size:.72rem;line-height:1.55;white-space:pre-wrap;word-break:break-word;user-select:text;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.user{align-self:flex-end;background:#0e3a5566;border:1px solid #0e3a55;color:var(--txt)}
+.msg.jarvis{align-self:flex-start;background:#07141fdd;border:1px solid var(--line);border-left:2px solid var(--cyan);color:var(--txt)}
+.msg.jarvis.think{color:var(--txt-dim);font-style:italic}
+.msg .who{display:block;font-size:.5rem;letter-spacing:2px;color:var(--cyan-dim);margin-bottom:3px;text-transform:uppercase}
+.empty-chat{color:var(--txt-dim);font-size:.62rem;letter-spacing:1px;text-align:center;margin-top:40%;line-height:2}
+
+/* ─── Bottom bar ─── */
+.bottombar{display:flex;align-items:center;gap:12px;border-top:1px solid var(--line);padding-top:12px}
+#chatInput{flex:1;background:#0a1420;border:1px solid var(--line);color:var(--txt);padding:12px 16px;border-radius:5px;font-family:inherit;font-size:.85rem;outline:none;transition:border .2s}
+#chatInput:focus{border-color:var(--cyan);box-shadow:0 0 12px #00d4ff22}
+.btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);padding:11px 20px;border-radius:5px;cursor:pointer;font-family:'Orbitron',monospace;font-size:.65rem;letter-spacing:2px;text-transform:uppercase;transition:all .2s}
+.btn:hover{background:#00d4ff1e;box-shadow:0 0 14px #00d4ff33}
+.btn.dim{border-color:var(--cyan-dim);color:var(--cyan-dim)}
+
+/* ─── Modal ajustes ─── */
+.modal-bg{position:fixed;inset:0;background:#000a;z-index:50;display:none;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#0a1220;border:1px solid #00d4ff55;border-radius:8px;padding:26px;width:min(500px,92vw);max-height:88vh;overflow-y:auto;box-shadow:0 0 50px #00d4ff22}
+.modal h2{font-family:'Orbitron',monospace;font-size:.85rem;letter-spacing:4px;color:var(--cyan);margin-bottom:18px;text-transform:uppercase}
+.modal label{display:block;font-size:.58rem;letter-spacing:2px;color:var(--txt-dim);text-transform:uppercase;margin:14px 0 5px}
+.modal input,.modal select{width:100%;background:#060a12;border:1px solid var(--line);color:var(--txt);padding:10px 12px;border-radius:4px;font-family:inherit;font-size:.8rem;outline:none}
+.modal input:focus,.modal select:focus{border-color:var(--cyan)}
+.modal .hint{font-size:.55rem;color:var(--txt-dim);margin-top:4px}
+.modal .btns{display:flex;gap:10px;margin-top:22px;justify-content:flex-end}
+.modal .btns .btn.sec{border-color:var(--txt-dim);color:var(--txt-dim)}
+#testResult{font-size:.62rem;margin-top:10px;letter-spacing:1px;min-height:1em}
+#testResult.ok{color:var(--green)}
+#testResult.err{color:var(--red)}
+
+@media (max-width:900px){
+  .main{grid-template-columns:1fr}
+  .panel.statspanel{display:none}
+  .center{display:none}
+}
+</style>
+</head>
+<body>
+<div class="frame"><i></i></div>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>J.A.R.V.I.S</h1>
+      <div class="mode">SISTEMA <b id="modeLabel">EN LÍNEA</b></div>
+    </div>
+    <div class="clockbox">
+      <div id="clock">--:--:--</div>
+      <div id="dateLine"></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel statspanel">
+      <h3>◈ Sistema</h3>
+      <div class="stat"><div class="lbl"><span>CPU</span><b id="cpuVal">--%</b></div><div class="bar"><i id="cpuBar"></i></div></div>
+      <div class="stat"><div class="lbl"><span>MEMORIA</span><b id="ramVal">--%</b></div><div class="bar"><i id="ramBar"></i></div></div>
+      <div class="stat"><div class="lbl"><span>DISCO</span><b id="diskVal">--%</b></div><div class="bar"><i id="diskBar"></i></div></div>
+      <div class="vstate"><span class="indicator" id="voiceIndicator"></span><span id="voiceState">VOZ INACTIVA</span></div>
+      <div id="modelChip"><b>MODELO ACTIVO</b><span id="modelLabel">—</span></div>
+    </div>
+
+    <div class="center">
+      <div id="transcript"></div>
+      <canvas id="c"></canvas>
+      <div id="wakeHint">CLICK PARA ACTIVAR MICRÓFONO</div>
+    </div>
+
+    <div class="panel chatpanel">
+      <h3>◈ Conversación</h3>
+      <div id="chatLog"><div class="empty-chat">SIN MENSAJES<br>Escríbeme o di "JARVIS"</div></div>
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <input id="chatInput" type="text" placeholder="Escríbele a JARVIS..." autocomplete="off">
+    <button class="btn" onclick="sendChat()">Enviar</button>
+    <button class="btn dim" onclick="toggleV()" id="vozBtn">Voz</button>
+    <button class="btn dim" onclick="openSettings()">⚙</button>
+  </div>
+</div>
+
+<!-- Modal ajustes -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <h2>⚙ Ajustes</h2>
+    <label>API Key de OpenRouter</label>
+    <input id="apiKeyInput" type="password" placeholder="sk-or-v1-...">
+    <div class="hint" id="keyHint">Consíguela gratis en openrouter.ai/keys</div>
+    <label>Buscar modelo</label>
+    <input id="modelSearch" type="text" placeholder="ej: claude, gpt, free..." oninput="filterModels()">
+    <label>Modelo</label>
+    <select id="modelSelect" size="8"></select>
+    <div class="hint" id="modelCount"></div>
+    <label>Voz</label>
+    <select id="voiceSelect">
+      <option value="es-MX-DaliaNeural">Dalia (México, mujer)</option>
+      <option value="es-MX-JorgeNeural">Jorge (México, hombre)</option>
+      <option value="es-ES-ElviraNeural">Elvira (España, mujer)</option>
+      <option value="es-ES-AlvaroNeural">Álvaro (España, hombre)</option>
+      <option value="es-AR-TomasNeural">Tomás (Argentina, hombre)</option>
+      <option value="en-US-GuyNeural">Guy (Inglés, hombre)</option>
+    </select>
+    <div id="testResult"></div>
+    <div class="btns">
+      <button class="btn sec" onclick="testSettings()">Probar</button>
+      <button class="btn sec" onclick="closeSettings()">Cerrar</button>
+      <button class="btn" onclick="saveSettings()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ Reloj ═══
+const DIAS=['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+const MESES=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+function tick(){
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  document.getElementById('dateLine').textContent=DIAS[n.getDay()]+' '+n.getDate()+' '+MESES[n.getMonth()]+' '+n.getFullYear();
+}
+setInterval(tick,1000);tick();
+
+// ═══ Esfera ═══
+let canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let w,h,rotY=0,rotX=0.3,speed=0.005,targetSpeed=0.005;
+let wakeHint=document.getElementById('wakeHint');
+let transcriptEl=document.getElementById('transcript');
+let voiceOn=false,awake=false,micActive=false;
+
+const N=160,nodes=Array.from({length:N},()=>({t:Math.random()*Math.PI*2,p:Math.acos(2*Math.random()-1)}));
+const P=600,parts=Array.from({length:P},()=>({r:.8+.4*Math.random(),t:Math.random()*Math.PI*2,p:Math.acos(2*Math.random()-1)}));
+
+function ps(r,t,p){return{x:r*Math.sin(p)*Math.cos(t),y:r*Math.sin(p)*Math.sin(t),z:r*Math.cos(p)}}
+function rx(p,a){let c=Math.cos(a),s=Math.sin(a);return{x:p.x,y:p.y*c-p.z*s,z:p.y*s+p.z*c}}
+function ry(p,a){let c=Math.cos(a),s=Math.sin(a);return{x:p.x*c+p.z*s,y:p.y,z:-p.x*s+p.z*c}}
+function pj(p){let f=500,d=f/(f+p.z);return{x:p.x*d+w/2,y:p.y*d+h/2,f:d}}
+function rs(){
+  const r=document.querySelector('.center').getBoundingClientRect();
+  w=r.width;h=r.height;canvas.width=w;canvas.height=h;
+}
+
+function draw(){
+  speed+=(targetSpeed-speed)*0.06;if(speed<0.001)speed=0.003;rotY+=speed;rotX+=speed*0.15;
+  const S=Math.min(w,h)/3.2;
+  function pj2(p){let f=500,d=f/(f+p.z*S/140);return{x:p.x*S*d/140+w/2,y:p.y*S*d/140+h/2,f:d}}
+  for(let p of parts){let po=rx(ps(p.r*140,p.t+rotY,p.p),rotX);po=ry(po,rotY);let pr=pj2(po);if(pr.f>0&&pr.f<2){let a=Math.min(1,Math.max(0,(pr.f-0.2)*2));ctx.beginPath();ctx.arc(pr.x,pr.y,Math.max(0.3,0.5*pr.f),0,Math.PI*2);ctx.fillStyle='rgba(200,230,255,'+a*0.08+')';ctx.fill();}}
+  for(let i=0;i<24;i++){ctx.beginPath();let s2=false;for(let j=0;j<=20;j++){let s=(i/24)*Math.PI*2,t=(j/20)*Math.PI;let rm=(1.1+0.06*Math.sin(3*s)*Math.cos(4*t))*140;let po=ps(rm,s+rotY,t+rotX);po=rx(po,rotX);po=ry(po,rotY);let pr=pj2(po);if(pr.f>0&&pr.f<2){if(s2)ctx.lineTo(pr.x,pr.y);else{ctx.moveTo(pr.x,pr.y);s2=true}}else s2=false;}ctx.strokeStyle='rgba(0,200,255,0.07)';ctx.lineWidth=0.5;ctx.stroke();}
+  for(let j=0;j<15;j++){ctx.beginPath();let s2=false;for(let i=0;i<=24;i++){let s=(i/24)*Math.PI*2,t=(j/15)*Math.PI;let rm=(1.1+0.06*Math.sin(3*s)*Math.cos(4*t))*140;let po=ps(rm,s+rotY,t+rotX);po=rx(po,rotX);po=ry(po,rotY);let pr=pj2(po);if(pr.f>0&&pr.f<2){if(s2)ctx.lineTo(pr.x,pr.y);else{ctx.moveTo(pr.x,pr.y);s2=true}}else s2=false;}ctx.strokeStyle='rgba(0,200,255,0.05)';ctx.lineWidth=0.3;ctx.stroke();}
+  for(let n of nodes){let rr=(0.95+0.25*(0.85+0.15*Math.sin(5*n.t+rotY)))*140;let po=ps(rr,n.t+rotY,n.p);po=rx(po,rotX);po=ry(po,rotY);let pr=pj2(po);let ba=0.4+0.6*(0.5+0.5*Math.sin(n.t*2+n.p*3+rotY));let a=Math.min(1,Math.max(0,ba*pr.f));if(a>0.02&&pr.f<2){let si=1.2+0.8*a;ctx.beginPath();ctx.arc(pr.x,pr.y,si,0,Math.PI*2);if(a>0.7){ctx.shadowColor='rgba(0,212,255,'+a*0.5+')';ctx.shadowBlur=15;ctx.fillStyle='rgba(0,212,255,'+a+')';ctx.fill();ctx.shadowBlur=0;}else{let sh=200+55*Math.sin(n.t*2+n.p*3+Date.now()/4000);ctx.fillStyle='rgba('+(sh*0.86).toFixed(0)+','+(sh*0.96).toFixed(0)+',255,'+(a*0.7)+')';ctx.fill();}}}
+  let cr=6+3*Math.sin(Date.now()/2000);let grad=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,cr);let ca=0.5+0.2*Math.sin(Date.now()/1500);grad.addColorStop(0,'rgba(0,212,255,'+ca+')');grad.addColorStop(0.5,'rgba(0,212,255,'+ca*0.3+')');grad.addColorStop(1,'rgba(0,200,200,0)');ctx.beginPath();ctx.arc(w/2,h/2,cr,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
+}
+function loop(){if(w&&h)ctx.clearRect(0,0,w,h);draw();requestAnimationFrame(loop)}
+window.addEventListener('resize',rs);
+const obs=new ResizeObserver(()=>rs());obs.observe(document.querySelector('.center'));
+rs();loop();
+
+// ═══ Estado ═══
+function setBar(id,val){
+  const bar=document.getElementById(id+'Bar'),txt=document.getElementById(id+'Val');
+  if(val==null){txt.textContent='--%';return;}
+  bar.style.width=val+'%';
+  txt.textContent=Math.round(val)+'%';
+  bar.className=val>90?'crit':val>70?'warn':'';
+}
+function update(d){
+  let m='EN LÍNEA',ts=0.006;
+  if(d.thinking){m='PROCESANDO';ts=0.018;}
+  if(d.speaking){m='HABLANDO';ts=0.025;}
+  document.getElementById('modeLabel').textContent=m;
+  if(d.model)document.getElementById('modelLabel').textContent=d.model;
+  targetSpeed=ts;
+  const ind=document.getElementById('voiceIndicator'),vs=document.getElementById('voiceState');
+  let cls='',state='VOZ INACTIVA';
+  if(d.voice_enabled){
+    if(d.speaking){cls='speaking';state='HABLANDO';}
+    else if(d.thinking){cls='thinking';state='PROCESANDO';}
+    else{cls='on';state=micActive?'ESCUCHANDO':'VOZ ACTIVA';}
+  }
+  ind.className='indicator '+cls;vs.textContent=state;
+  voiceOn=d.voice_enabled;
+  if(d.stats){setBar('cpu',d.stats.cpu);setBar('ram',d.stats.ram);setBar('disk',d.stats.disk);}
+  if(d.has_key===false){wakeHint.className='active';wakeHint.textContent='CONFIGURA TU API KEY EN ⚙';}
+  else if(d.thinking||awake){wakeHint.className='active';wakeHint.textContent=d.thinking?'PROCESANDO...':'TE ESCUCHO...';}
+  else if(!voiceOn){wakeHint.className='';wakeHint.textContent='VOZ DESACTIVADA — CLICK EN [VOZ]';}
+  else if(micActive){wakeHint.className='';wakeHint.textContent='DI "JARVIS" PARA HABLARME';}
+}
+function poll(){fetch('/status').then(r=>r.json()).then(update).catch(()=>{});}
+setInterval(poll,3000);poll();
+
+// ═══ Chat ═══
+const chatInput=document.getElementById('chatInput');
+const chatLog=document.getElementById('chatLog');
+chatInput.addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
+
+function addMsg(who,text,extraClass){
+  const empty=chatLog.querySelector('.empty-chat');
+  if(empty)empty.remove();
+  const div=document.createElement('div');
+  div.className='msg '+who+(extraClass?' '+extraClass:'');
+  const label=document.createElement('span');
+  label.className='who';label.textContent=who==='user'?'TÚ':'JARVIS';
+  div.appendChild(label);
+  div.appendChild(document.createTextNode(text));
+  chatLog.appendChild(div);
+  chatLog.scrollTop=chatLog.scrollHeight;
+  return div;
+}
+
+function sendChat(){
+  const msg=chatInput.value.trim();
+  if(!msg)return;
+  chatInput.value='';
+  addMsg('user',msg);
+  const pending=addMsg('jarvis','...','think');
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,speak:voiceOn})})
+    .then(r=>r.json())
+    .then(d=>{pending.remove();addMsg('jarvis',d.response||'(sin respuesta)');})
+    .catch(e=>{pending.remove();addMsg('jarvis','Error: '+e.message);});
+}
+
+// ═══ Ajustes ═══
+let allModels=[];
+function openSettings(){
+  document.getElementById('settingsModal').classList.add('open');
+  document.getElementById('testResult').textContent='';
+  fetch('/api/settings').then(r=>r.json()).then(d=>{
+    document.getElementById('keyHint').textContent=d.has_key?('Clave actual: '+d.api_key_masked+' — deja vacío para no cambiarla'):'Consíguela gratis en openrouter.ai/keys';
+    document.getElementById('voiceSelect').value=d.voice||'es-MX-DaliaNeural';
+    loadModels(d.model);
+  });
+}
+function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
+document.getElementById('settingsModal').addEventListener('click',e=>{if(e.target.id==='settingsModal')closeSettings();});
+
+function loadModels(current){
+  const sel=document.getElementById('modelSelect');
+  sel.innerHTML='<option>Cargando modelos...</option>';
+  fetch('/api/models').then(r=>r.json()).then(d=>{
+    allModels=d.models;
+    renderModels(allModels,current);
+    document.getElementById('modelCount').textContent=allModels.length+' modelos disponibles ('+d.source+')';
+  }).catch(()=>{sel.innerHTML='<option>Error cargando modelos</option>';});
+}
+function renderModels(models,current){
+  const sel=document.getElementById('modelSelect');
+  sel.innerHTML='';
+  for(const m of models.slice(0,400)){
+    const o=document.createElement('option');
+    o.value=m.id;o.textContent=m.name+' — '+m.id;
+    if(m.id===current)o.selected=true;
+    sel.appendChild(o);
+  }
+  if(current&&![...sel.options].some(o=>o.selected)){
+    const o=document.createElement('option');o.value=current;o.textContent=current+' (actual)';o.selected=true;sel.insertBefore(o,sel.firstChild);
+  }
+}
+function filterModels(){
+  const q=document.getElementById('modelSearch').value.toLowerCase();
+  const filtered=q?allModels.filter(m=>(m.name+' '+m.id).toLowerCase().includes(q)):allModels;
+  renderModels(filtered,document.getElementById('modelSelect').value);
+  document.getElementById('modelCount').textContent=filtered.length+' modelos';
+}
+function saveSettings(){
+  const body={
+    api_key:document.getElementById('apiKeyInput').value.trim()||null,
+    model:document.getElementById('modelSelect').value||null,
+    voice:document.getElementById('voiceSelect').value||null,
+  };
+  fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(d=>{
+      const tr=document.getElementById('testResult');
+      tr.className='ok';tr.textContent='✓ Guardado. Modelo: '+d.model;
+      document.getElementById('apiKeyInput').value='';
+      document.getElementById('modelLabel').textContent=d.model;
+      poll();
+    });
+}
+function testSettings(){
+  const tr=document.getElementById('testResult');
+  tr.className='';tr.textContent='Probando conexión...';
+  const body={
+    api_key:document.getElementById('apiKeyInput').value.trim()||null,
+    model:document.getElementById('modelSelect').value||null,
+  };
+  fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(()=>fetch('/api/settings/test',{method:'POST'}))
+    .then(r=>r.json()).then(d=>{
+      if(d.ok){tr.className='ok';tr.textContent='✓ Conexión OK — el modelo respondió: "'+d.reply+'"';document.getElementById('apiKeyInput').value='';}
+      else{tr.className='err';tr.textContent='✗ '+d.error;}
+    }).catch(e=>{tr.className='err';tr.textContent='✗ '+e.message;});
+}
+
+// ═══ Voz: AudioWorklet con fallback ═══
+let audioCtx=null,stream=null,source=null,proc=null,workletNode=null;
+let pcmBuf=[],sending=false;
+const CHUNK_MS=2500;
+let lastChunk=0;
+
+const WORKLET_CODE=`
+class PCMCapture extends AudioWorkletProcessor{
+  process(inputs){
+    const ch=inputs[0]&&inputs[0][0];
+    if(ch)this.port.postMessage(new Float32Array(ch));
+    return true;
+  }
+}
+registerProcessor('pcm-capture',PCMCapture);
+`;
+
+function float32ToInt16(f){
+  let len=f.length,buf=new ArrayBuffer(len*2),v=new DataView(buf);
+  for(let i=0;i<len;i++){let s=Math.max(-1,Math.min(1,f[i]));v.setInt16(i*2,s<0?s*0x8000:s*0x7FFF,true);}
+  return new Uint8Array(buf);
+}
+function arrBufToBase64(buf){
+  let bytes=new Uint8Array(buf),binary='';
+  for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+function rms(f){let s=0;for(let i=0;i<f.length;i++)s+=f[i]*f[i];return Math.sqrt(s/f.length);}
+
+function onAudioFrame(f32){
+  if(!voiceOn)return;
+  pcmBuf.push(f32);
+  let now=Date.now();
+  if(now-lastChunk>=CHUNK_MS&&pcmBuf.length>0){
+    lastChunk=now;
+    let total=pcmBuf.reduce((a,b)=>a+b.length,0);
+    let all=new Float32Array(total);
+    let off=0;
+    for(let b of pcmBuf){all.set(b,off);off+=b.length;}
+    pcmBuf=[];
+    sendChunk(all);
+  }
+}
+
+function sendChunk(data){
+  if(sending||!voiceOn)return;
+  if(rms(data)<0.01){if(!awake)transcriptEl.textContent='';return;}
+  sending=true;
+  let int16=float32ToInt16(data);
+  let b64=arrBufToBase64(int16.buffer);
+  fetch('/api/transcribe',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/octet-stream',
+      'X-Awake':awake?'true':'false',
+      'X-Sample-Rate':audioCtx?String(audioCtx.sampleRate):'48000',
+      'X-Base64':'true'
+    },
+    body:b64
+  }).then(r=>r.json()).then(d=>{
+    sending=false;
+    if(d.text)transcriptEl.textContent=d.text;
+    if(d.wake&&!awake)awake=true;
+    if(d.response){
+      awake=false;
+      addMsg('user',d.text);
+      addMsg('jarvis',d.response);
+      transcriptEl.textContent='';
+    }
+  }).catch(()=>{sending=false;});
+}
+
+async function startMic(){
+  if(micActive||!voiceOn)return;
+  try{
+    audioCtx=new AudioContext();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    source=audioCtx.createMediaStreamSource(stream);
+    if(audioCtx.audioWorklet){
+      const blob=new Blob([WORKLET_CODE],{type:'application/javascript'});
+      const url=URL.createObjectURL(blob);
+      await audioCtx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      workletNode=new AudioWorkletNode(audioCtx,'pcm-capture');
+      workletNode.port.onmessage=e=>onAudioFrame(e.data);
+      source.connect(workletNode);
+    }else{
+      proc=audioCtx.createScriptProcessor(4096,1,1);
+      proc.onaudioprocess=e=>onAudioFrame(new Float32Array(e.inputBuffer.getChannelData(0)));
+      source.connect(proc);
+      proc.connect(audioCtx.destination);
+    }
+    micActive=true;
+    lastChunk=Date.now();
+    poll();
+  }catch(e){
+    wakeHint.textContent='ERROR DE MICRÓFONO: '+e.message;
+  }
+}
+
+function stopMic(){
+  micActive=false;awake=false;pcmBuf=[];
+  if(workletNode){try{workletNode.disconnect();}catch(e){}workletNode=null;}
+  if(proc){try{proc.disconnect();}catch(e){}proc=null;}
+  if(source){try{source.disconnect();}catch(e){}source=null;}
+  if(audioCtx){try{audioCtx.close();}catch(e){}audioCtx=null;}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+}
+
+function toggleV(){
+  fetch('/voice/toggle',{method:'POST'}).then(r=>r.json()).then(d=>{
+    voiceOn=d.enabled;
+    if(voiceOn)startMic();
+    else{stopMic();wakeHint.textContent='VOZ DESACTIVADA — CLICK EN [VOZ]';}
+    poll();
+  });
+}
+
+document.querySelector('.center').addEventListener('click',function(){
+  if(!micActive&&voiceOn)startMic();
+});
+</script>
+</body>
+</html>

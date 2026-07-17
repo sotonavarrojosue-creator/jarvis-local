@@ -1,0 +1,16 @@
+openai
+python-dotenv
+rich
+duckduckgo_search
+requests
+simpleeval>=1.0.5
+flask
+edge-tts
+SpeechRecognition
+deep-translator
+feedparser
+faster-whisper
+sounddevice
+numpy
+pywebview
+psutil
